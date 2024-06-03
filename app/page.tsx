@@ -1,13 +1,11 @@
-import Image from "next/image";
+import Link from "next/link";
 
 const RECENT_SIZE = 100;
 
 type ContestType = "Div. 2" | "Div. 3";
-type Phase = "BEFORE" | "FINISHED";
 
 type RawContest = {
   name: string;
-  phase: Phase;
   id: number;
   [x: string]: unknown;
 };
@@ -31,7 +29,7 @@ type Problem = {
   contestId: number;
   index: Index;
   name: string;
-  rating: number
+  rating: number;
 };
 
 type RequiredProblem = Problem & Contest & { url: string };
@@ -51,7 +49,7 @@ async function fetchContests() {
 
     const rawContests = (await response.json()).result as RawContest[];
     const contestList = rawContests.filter(
-      (contest) => isRequiredContest(contest) && contest.phase === "FINISHED"
+      (contest) => isRequiredContest(contest)
     );
     const reversedContestList = contestList.slice(0, RECENT_SIZE);
     const contests: Contest[] = reversedContestList.map((contest) => {
@@ -94,44 +92,61 @@ function getProblemList(
 
   const requiredProblems = problems.filter((problem) => {
     const contest = contestMap.get(problem.contestId);
-    if(!contest) {
-      return false
+    if (!contest) {
+      return false;
     }
     let set = new Set();
     switch (true) {
       case isDiv2(contest):
-        set =  new Set(["B", "B1", "B2"]);
+        set = new Set(["B", "B1", "B2"]);
         break;
       case isDiv3(contest):
-        set =  new Set(["B2", "C", "D"]);
+        set = new Set(["B2", "C", "D"]);
     }
-    return contestMap.has(problem.contestId) && set.has(problem.index) && problem.rating >= 1200;
+    return (
+      contestMap.has(problem.contestId) &&
+      set.has(problem.index) &&
+      problem.rating >= 1200
+    );
   });
 
   const formattedProblems: RequiredProblem[] = requiredProblems.map(
     (problem) => {
       return {
-        ...problem,
         ...contestMap.get(problem.contestId),
+        ...problem,
         url: `https://codeforces.com/contest/${problem.contestId}/problem/${problem.index}`,
       };
     }
   );
-  console.log(formattedProblems.length)
   return formattedProblems;
+}
+
+function Problem(problem: RequiredProblem) {
+  return <Link href={problem.url}>
+  <div className="border p-2 m-2">
+    <div className="flex flex-1">
+      <pre>{problem.contestId}.  </pre>
+      <p>{problem.name}</p>
+      <h1>({problem.index})</h1>
+    </div>
+  </div>
+  </Link>;
 }
 
 export default async function Home() {
   const contests = await fetchContests();
   const problems = await fetchProblems();
   let list = [] as RequiredProblem[];
+
   if (contests && problems) {
     list = getProblemList(contests, problems);
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      {JSON.stringify(list)}
+    <main className="flex min-h-screen flex-col items-center justify-between p-24 bg-white text-black">
+      <h1>Total: {list.length}</h1>
+      {list.reverse().map(item => <Problem  {...item} key={item.id} />)}
     </main>
   );
 }
